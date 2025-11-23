@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Package, FileText, Grid3x3, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, Package, FileText, Grid3x3, Building2, Building, Tag } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 import {
@@ -16,7 +16,9 @@ import {
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Users", url: "/users", icon: Users },
+  { title: "Departments", url: "/departments", icon: Building },
   { title: "Products", url: "/products", icon: Package },
+  { title: "Product Categories", url: "/product-categories", icon: Tag },
   { title: "Manufacturers", url: "/manufacturers", icon: Building2 },
   { title: "Assignments", url: "/assignments", icon: FileText },
   { title: "Matrix View", url: "/matrix", icon: Grid3x3 },

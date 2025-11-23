@@ -5,6 +5,8 @@ import * as variantsApi from "@/integrations/api/variants";
 import * as assignmentsApi from "@/integrations/api/assignments";
 import * as productsApi from "@/integrations/api/products";
 import * as manufacturersApi from "@/integrations/api/manufacturers";
+import * as departmentsApi from "@/integrations/api/departments";
+import * as productCategoriesApi from "@/integrations/api/productCategories";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +37,8 @@ interface VariantWithProduct extends ProductVariant {
 
 export default function Matrix() {
   const queryClient = useQueryClient();
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("all");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
   const [selectedCell, setSelectedCell] = useState<{
     userId: string;
     productId: string;
@@ -67,7 +71,29 @@ export default function Matrix() {
     },
   });
 
-  const products = productsPage?.content || [];
+  const { data: departmentsPage } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      return departmentsApi.listDepartments();
+    },
+  });
+
+  const { data: categoriesPage } = useQuery({
+    queryKey: ["product-categories"],
+    queryFn: async () => {
+      return productCategoriesApi.listProductCategories();
+    },
+  });
+
+  const allProducts = productsPage?.content || [];
+  
+  // Filter products by selected category
+  const products = useMemo(() => {
+    if (selectedCategoryId === "all") {
+      return allProducts;
+    }
+    return allProducts.filter((product) => product.categoryId === selectedCategoryId);
+  }, [allProducts, selectedCategoryId]);
   
   // Create manufacturer map for quick lookup
   const manufacturerMap = useMemo(() => {
@@ -214,8 +240,16 @@ export default function Matrix() {
   };
 
 
-  const users = usersPage?.content || [];
+  const allUsers = usersPage?.content || [];
   const variants = allVariants || [];
+
+  // Filter users by selected department
+  const users = useMemo(() => {
+    if (selectedDepartmentId === "all") {
+      return allUsers;
+    }
+    return allUsers.filter((user) => user.departmentId === selectedDepartmentId);
+  }, [allUsers, selectedDepartmentId]);
 
   // Calculate totals (sum of prices)
   const productTotals = useMemo(() => {
@@ -258,14 +292,19 @@ export default function Matrix() {
 
   const grandTotal = useMemo(() => {
     let sum = 0;
+    // Only sum assignments for filtered users
+    const filteredUserIds = new Set(users.map(u => u.id));
     assignmentMap.forEach((assignment) => {
-      const variant = variantMap.get(assignment.productVariantId);
-      if (variant?.price) {
-        sum += variant.price;
+      // Only include assignments for users in the filtered list
+      if (filteredUserIds.has(assignment.userId)) {
+        const variant = variantMap.get(assignment.productVariantId);
+        if (variant?.price) {
+          sum += variant.price;
+        }
       }
     });
     return sum;
-  }, [assignmentMap, variantMap]);
+  }, [assignmentMap, variantMap, users]);
 
   if (!usersPage || (products.length > 0 && !allVariants)) {
     return <div className="p-8">Loading...</div>;
@@ -280,9 +319,49 @@ export default function Matrix() {
         </p>
       </div>
 
+      <div className="flex gap-4 items-end">
+        <div className="grid gap-2 flex-1 max-w-xs">
+          <Label htmlFor="department-filter">Filter by Department</Label>
+          <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
+            <SelectTrigger id="department-filter">
+              <SelectValue placeholder="All departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All departments</SelectItem>
+              {departmentsPage?.content?.map((department) => (
+                <SelectItem key={department.id} value={department.id}>
+                  {department.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2 flex-1 max-w-xs">
+          <Label htmlFor="category-filter">Filter by Category</Label>
+          <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+            <SelectTrigger id="category-filter">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categoriesPage?.content?.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       <div className="border border-border rounded-lg bg-card overflow-auto">
-        <div className="min-w-max">
-          <div className="grid gap-0" style={{ gridTemplateColumns: `200px repeat(${products.length}, 140px) 140px` }}>
+        {products.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            No products found for the selected filters.
+          </div>
+        ) : (
+          <div className="min-w-max">
+            <div className="grid gap-0" style={{ gridTemplateColumns: `200px repeat(${products.length}, 140px) 140px` }}>
             {/* Header row */}
             <div className="sticky left-0 z-20 bg-muted/50 backdrop-blur border-b border-r border-border p-3 font-semibold">
               User / Product
@@ -383,6 +462,7 @@ export default function Matrix() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       <div className="flex gap-4 text-sm">

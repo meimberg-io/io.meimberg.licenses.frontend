@@ -3,12 +3,16 @@ import type { User, UserCreateRequest, UserUpdateRequest, PageUser, UUID } from 
 
 export async function listUsers(params?: {
   email?: string;
+  departmentId?: UUID;
   page?: number;
   size?: number;
   sort?: string;
 }): Promise<PageUser> {
   const searchParams = new URLSearchParams();
   if (params?.email) searchParams.append("email", params.email);
+  if (params?.departmentId !== undefined && params.departmentId !== null && params.departmentId !== "") {
+    searchParams.append("departmentId", params.departmentId);
+  }
   if (params?.page !== undefined) searchParams.append("page", params.page.toString());
   if (params?.size !== undefined) searchParams.append("size", params.size.toString());
   if (params?.sort) searchParams.append("sort", params.sort);

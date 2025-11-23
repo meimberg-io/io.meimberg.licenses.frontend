@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import * as productsApi from "@/integrations/api/products";
 import * as manufacturersApi from "@/integrations/api/manufacturers";
+import * as productCategoriesApi from "@/integrations/api/productCategories";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,6 +28,7 @@ export default function Products() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedManufacturerId, setSelectedManufacturerId] = useState<string>("all");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
 
   const { data: manufacturersPage, isLoading: manufacturersLoading } = useQuery({
     queryKey: ["manufacturers"],
@@ -36,11 +38,19 @@ export default function Products() {
     retry: 1,
   });
 
+  const { data: categoriesPage } = useQuery({
+    queryKey: ["product-categories"],
+    queryFn: async () => {
+      return productCategoriesApi.listProductCategories();
+    },
+  });
+
   const { data: productsPage, isLoading, error } = useQuery({
-    queryKey: ["products", selectedManufacturerId === "all" ? null : selectedManufacturerId],
+    queryKey: ["products", selectedManufacturerId === "all" ? null : selectedManufacturerId, selectedCategoryId === "all" ? null : selectedCategoryId],
     queryFn: async () => {
       return productsApi.listProducts({
         manufacturerId: selectedManufacturerId === "all" ? undefined : selectedManufacturerId,
+        categoryId: selectedCategoryId === "all" ? undefined : selectedCategoryId,
       });
     },
   });
@@ -92,6 +102,22 @@ export default function Products() {
                   </SelectItem>
                 ))
               )}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2 flex-1 max-w-xs">
+          <Label htmlFor="category-filter">Filter by Category</Label>
+          <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+            <SelectTrigger id="category-filter">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categoriesPage?.content?.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

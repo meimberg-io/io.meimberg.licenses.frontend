@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as usersApi from "@/integrations/api/users";
+import * as departmentsApi from "@/integrations/api/departments";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -28,25 +36,35 @@ import type { User } from "@/integrations/api/types";
 export default function Users() {
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState({ email: "", displayName: "" });
+  const [formData, setFormData] = useState({ email: "", displayName: "", departmentId: "" });
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("all");
   const queryClient = useQueryClient();
 
-  const { data: usersPage, isLoading } = useQuery({
-    queryKey: ["users"],
+  const { data: departmentsPage } = useQuery({
+    queryKey: ["departments"],
     queryFn: async () => {
-      return usersApi.listUsers();
+      return departmentsApi.listDepartments();
+    },
+  });
+
+  const { data: usersPage, isLoading } = useQuery({
+    queryKey: ["users", selectedDepartmentId === "all" ? null : selectedDepartmentId],
+    queryFn: async () => {
+      return usersApi.listUsers({
+        departmentId: selectedDepartmentId === "all" ? undefined : selectedDepartmentId,
+      });
     },
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { email: string; displayName: string }) => {
+    mutationFn: async (data: { email: string; displayName: string; departmentId: string }) => {
       return usersApi.createUser(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success("User created successfully");
       setOpen(false);
-      setFormData({ email: "", displayName: "" });
+      setFormData({ email: "", displayName: "", departmentId: "" });
     },
     onError: (error: any) => {
       console.error("Create user error:", error);
@@ -55,15 +73,30 @@ export default function Users() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { email?: string; displayName?: string } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { email?: string; displayName?: string; departmentId?: string } }) => {
       return usersApi.updateUser(id, data);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // Invalidate all user queries, including department-filtered ones
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Also invalidate the old department's user list if department changed
+      if (editingUser && variables.data.departmentId && editingUser.departmentId !== variables.data.departmentId) {
+        queryClient.invalidateQueries({ queryKey: ["users", editingUser.departmentId] });
+      }
+      // Invalidate the new department's user list
+      if (variables.data.departmentId) {
+        queryClient.invalidateQueries({ queryKey: ["users", variables.data.departmentId] });
+      }
+      // Invalidate department detail pages that might show this user
+      queryClient.invalidateQueries({ queryKey: ["users", "department"] });
+      // Refetch the current query to ensure the list updates
+      queryClient.refetchQueries({ 
+        queryKey: ["users", selectedDepartmentId === "all" ? null : selectedDepartmentId] 
+      });
       toast.success("User updated successfully");
       setOpen(false);
       setEditingUser(null);
-      setFormData({ email: "", displayName: "" });
+      setFormData({ email: "", displayName: "", departmentId: "" });
     },
     onError: (error: any) => {
       console.error("Update user error:", error);
@@ -97,7 +130,7 @@ export default function Users() {
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    setFormData({ email: user.email, displayName: user.displayName });
+    setFormData({ email: user.email, displayName: user.displayName, departmentId: user.departmentId });
     setOpen(true);
   };
 
@@ -105,11 +138,13 @@ export default function Users() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingUser(null);
-      setFormData({ email: "", displayName: "" });
+      setFormData({ email: "", displayName: "", departmentId: "" });
     }
   };
 
   const users = usersPage?.content || [];
+  const departments = departmentsPage?.content || [];
+  const departmentMap = new Map(departments.map((d) => [d.id, d.name]));
 
   return (
     <div className="space-y-6">
@@ -153,6 +188,25 @@ export default function Users() {
                     required
                   />
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="departmentId">Department *</Label>
+                  <Select
+                    value={formData.departmentId}
+                    onValueChange={(value) => setFormData({ ...formData, departmentId: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departmentsPage?.content?.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
@@ -164,25 +218,45 @@ export default function Users() {
         </Dialog>
       </div>
 
+      <div className="flex gap-4 items-end">
+        <div className="grid gap-2 flex-1 max-w-xs">
+          <Label htmlFor="department-filter">Filter by Department</Label>
+          <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
+            <SelectTrigger id="department-filter">
+              <SelectValue placeholder="All departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All departments</SelectItem>
+              {departments.map((department) => (
+                <SelectItem key={department.id} value={department.id}>
+                  {department.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       <div className="border border-border rounded-lg bg-card">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Display Name</TableHead>
+              <TableHead>Department</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center">
+                <TableCell colSpan={4} className="text-center">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   No users found. Click "Add User" to create one.
                 </TableCell>
               </TableRow>
@@ -191,6 +265,7 @@ export default function Users() {
                 <TableRow key={user.id}>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.displayName}</TableCell>
+                  <TableCell>{departmentMap.get(user.departmentId) || "-"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(user)}>
