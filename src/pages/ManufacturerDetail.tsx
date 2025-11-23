@@ -55,7 +55,7 @@ export default function ManufacturerDetail() {
     queryKey: ["products", "manufacturer", id],
     queryFn: async () => {
       if (isNewManufacturer || !id) return { content: [], totalElements: 0, totalPages: 0, size: 0, number: 0 };
-      return productsApi.listProducts({ manufacturerId: id, size: 500 });
+      return productsApi.listProducts({ manufacturerId: id, size: 200 });
     },
     enabled: !isNewManufacturer && !!id,
   });

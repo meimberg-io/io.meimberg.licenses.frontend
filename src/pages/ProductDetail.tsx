@@ -94,7 +94,7 @@ export default function ProductDetail() {
   const { data: manufacturersPage } = useQuery({
     queryKey: ["manufacturers"],
     queryFn: async () => {
-      return manufacturersApi.listManufacturers({ size: 500 });
+      return manufacturersApi.listManufacturers({ size: 200 });
     },
   });
 
@@ -102,7 +102,7 @@ export default function ProductDetail() {
   const { data: categoriesPage } = useQuery({
     queryKey: ["product-categories"],
     queryFn: async () => {
-      return productCategoriesApi.listProductCategories({ size: 500 });
+      return productCategoriesApi.listProductCategories({ size: 200 });
     },
   });
 
