@@ -86,17 +86,18 @@ The following environment variables must be set in GitHub Variables/Secrets:
 - `SERVER_HOST` - Server hostname (e.g., `hc-02.meimberg.io`)
 - `SERVER_USER` - SSH user (default: `deploy`)
 - `APP_DOMAIN` - Domain for the application (e.g., `licenses.meimberg.io`)
+- `API_BASE_URL` - Backend API URL (required)
 
 ### GitHub Secrets
 - `SSH_PRIVATE_KEY` - Private SSH key for deployment user
 
 ### Build-time Environment Variables
 
-The `VITE_API_BASE_URL` is set at build time in the Dockerfile:
-- Production: `https://licenses-backend.meimberg.io/api/v1`
+The `VITE_API_BASE_URL` is set at build time from the GitHub Variable `API_BASE_URL`:
 - This is baked into the static files during build
+- **Required**: `API_BASE_URL` must be set in GitHub Variables
 
-To change the API URL, update the `build-args` in `.github/workflows/deploy.yml` and redeploy.
+To change the API URL, update the `API_BASE_URL` GitHub Variable and redeploy.
 
 ---
 
