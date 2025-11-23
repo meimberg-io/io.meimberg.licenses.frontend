@@ -20,7 +20,7 @@ export default function Manufacturers() {
   const { data: manufacturersPage, isLoading } = useQuery({
     queryKey: ["manufacturers"],
     queryFn: async () => {
-      return manufacturersApi.listManufacturers();
+      return manufacturersApi.listManufacturers({ size: 500 });
     },
   });
 

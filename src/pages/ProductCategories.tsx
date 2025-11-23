@@ -32,7 +32,7 @@ export default function ProductCategories() {
   const { data: categoriesPage, isLoading, error } = useQuery({
     queryKey: ["product-categories"],
     queryFn: async () => {
-      return productCategoriesApi.listProductCategories();
+      return productCategoriesApi.listProductCategories({ size: 500 });
     },
   });
 
