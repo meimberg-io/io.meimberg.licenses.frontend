@@ -4,16 +4,19 @@ export interface User {
   id: UUID;
   email: string;
   displayName: string;
+  departmentId: UUID;
 }
 
 export interface UserCreateRequest {
   email: string;
   displayName: string;
+  departmentId: UUID;
 }
 
 export interface UserUpdateRequest {
   email?: string;
   displayName?: string;
+  departmentId?: UUID;
 }
 
 export interface PageUser {
@@ -30,6 +33,7 @@ export interface Product {
   name: string;
   description?: string;
   manufacturerId?: UUID | null;
+  categoryId?: UUID | null;
 }
 
 export interface ProductCreateRequest {
@@ -37,6 +41,7 @@ export interface ProductCreateRequest {
   name: string;
   description?: string;
   manufacturerId?: UUID | null;
+  categoryId?: UUID | null;
 }
 
 export interface ProductUpdateRequest {
@@ -44,6 +49,7 @@ export interface ProductUpdateRequest {
   name?: string;
   description?: string;
   manufacturerId?: UUID | null;
+  categoryId?: UUID | null;
 }
 
 export interface PageProduct {
@@ -136,6 +142,48 @@ export interface ManufacturerUpdateRequest {
 
 export interface PageManufacturer {
   content: Manufacturer[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+export interface Department {
+  id: UUID;
+  name: string;
+}
+
+export interface DepartmentCreateRequest {
+  name: string;
+}
+
+export interface DepartmentUpdateRequest {
+  name?: string;
+}
+
+export interface PageDepartment {
+  content: Department[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+export interface ProductCategory {
+  id: UUID;
+  name: string;
+}
+
+export interface ProductCategoryCreateRequest {
+  name: string;
+}
+
+export interface ProductCategoryUpdateRequest {
+  name?: string;
+}
+
+export interface PageProductCategory {
+  content: ProductCategory[];
   totalElements: number;
   totalPages: number;
   size: number;

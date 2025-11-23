@@ -3,6 +3,7 @@ import type { Product, ProductCreateRequest, ProductUpdateRequest, PageProduct, 
 
 export async function listProducts(params?: {
   manufacturerId?: UUID;
+  categoryId?: UUID;
   page?: number;
   size?: number;
   sort?: string;
@@ -10,6 +11,9 @@ export async function listProducts(params?: {
   const searchParams = new URLSearchParams();
   if (params?.manufacturerId !== undefined && params.manufacturerId !== null && params.manufacturerId !== "") {
     searchParams.append("manufacturerId", params.manufacturerId);
+  }
+  if (params?.categoryId !== undefined && params.categoryId !== null && params.categoryId !== "") {
+    searchParams.append("categoryId", params.categoryId);
   }
   if (params?.page !== undefined) searchParams.append("page", params.page.toString());
   if (params?.size !== undefined) searchParams.append("size", params.size.toString());

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import * as manufacturersApi from "@/integrations/api/manufacturers";
+import * as productCategoriesApi from "@/integrations/api/productCategories";
 import { CreateManufacturerDialog } from "@/components/CreateManufacturerDialog";
 import {
   Table,
@@ -56,6 +57,7 @@ export default function ProductDetail() {
     name: "",
     description: "",
     manufacturerId: "none",
+    categoryId: "none",
   });
 
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
@@ -96,6 +98,14 @@ export default function ProductDetail() {
     },
   });
 
+  // Fetch categories
+  const { data: categoriesPage } = useQuery({
+    queryKey: ["product-categories"],
+    queryFn: async () => {
+      return productCategoriesApi.listProductCategories();
+    },
+  });
+
   // Update form when product data loads
   useEffect(() => {
     if (product) {
@@ -104,6 +114,7 @@ export default function ProductDetail() {
         name: product.name,
         description: product.description || "",
         manufacturerId: product.manufacturerId || "none",
+        categoryId: product.categoryId || "none",
       });
     }
   }, [product]);
@@ -114,6 +125,7 @@ export default function ProductDetail() {
       return productsApi.createProduct({
         ...data,
         manufacturerId: data.manufacturerId === "none" ? null : data.manufacturerId,
+        categoryId: data.categoryId === "none" ? null : data.categoryId,
       });
     },
     onSuccess: async (newProduct) => {
@@ -134,6 +146,7 @@ export default function ProductDetail() {
       return productsApi.updateProduct(id, {
         ...data,
         manufacturerId: data.manufacturerId === "none" ? null : data.manufacturerId,
+        categoryId: data.categoryId === "none" ? null : data.categoryId,
       });
     },
     onSuccess: () => {
@@ -323,6 +336,25 @@ export default function ProductDetail() {
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="categoryId">Category</Label>
+                <Select
+                  value={productForm.categoryId}
+                  onValueChange={(value) => setProductForm({ ...productForm, categoryId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {categoriesPage?.content?.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardContent>

@@ -13,6 +13,9 @@ import Assignments from "./pages/Assignments";
 import Matrix from "./pages/Matrix";
 import Manufacturers from "./pages/Manufacturers";
 import ManufacturerDetail from "./pages/ManufacturerDetail";
+import Departments from "./pages/Departments";
+import DepartmentDetail from "./pages/DepartmentDetail";
+import ProductCategories from "./pages/ProductCategories";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -30,7 +33,12 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
@@ -42,6 +50,9 @@ const App = () => (
             <Route path="/matrix" element={<Matrix />} />
             <Route path="/manufacturers" element={<Manufacturers />} />
             <Route path="/manufacturers/:id" element={<ManufacturerDetail />} />
+            <Route path="/departments" element={<Departments />} />
+            <Route path="/departments/:id" element={<DepartmentDetail />} />
+            <Route path="/product-categories" element={<ProductCategories />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
