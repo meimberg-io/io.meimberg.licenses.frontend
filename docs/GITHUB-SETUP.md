@@ -19,6 +19,7 @@ Add the following variables:
 | `SERVER_HOST` | Server hostname | `hc-02.meimberg.io` |
 | `SERVER_USER` | SSH user (optional, defaults to `deploy`) | `deploy` |
 | `APP_DOMAIN` | Domain for the application | `licenses.meimberg.io` |
+| `API_BASE_URL` | Backend API URL (required) | `https://licenses-backend.meimberg.io/api/v1` |
 
 ## Step 2: Configure GitHub Secrets
 
