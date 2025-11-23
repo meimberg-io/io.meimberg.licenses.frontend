@@ -52,6 +52,7 @@ export default function Users() {
     queryFn: async () => {
       return usersApi.listUsers({
         departmentId: selectedDepartmentId === "all" ? undefined : selectedDepartmentId,
+        size: 500,
       });
     },
   });

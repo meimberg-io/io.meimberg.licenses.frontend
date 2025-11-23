@@ -56,14 +56,14 @@ export default function Assignments() {
   const { data: usersPage } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      return usersApi.listUsers();
+      return usersApi.listUsers({ size: 500 });
     },
   });
 
   const { data: productsPage } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      return productsApi.listProducts();
+      return productsApi.listProducts({ size: 500 });
     },
   });
 
@@ -92,7 +92,7 @@ export default function Assignments() {
   const { data: assignmentsPage, isLoading } = useQuery({
     queryKey: ["assignments"],
     queryFn: async () => {
-      return assignmentsApi.listAssignments();
+      return assignmentsApi.listAssignments({ size: 500 });
     },
   });
 

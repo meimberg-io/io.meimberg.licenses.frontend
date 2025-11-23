@@ -41,7 +41,7 @@ export default function Products() {
   const { data: categoriesPage } = useQuery({
     queryKey: ["product-categories"],
     queryFn: async () => {
-      return productCategoriesApi.listProductCategories();
+      return productCategoriesApi.listProductCategories({ size: 500 });
     },
   });
 
@@ -51,6 +51,7 @@ export default function Products() {
       return productsApi.listProducts({
         manufacturerId: selectedManufacturerId === "all" ? undefined : selectedManufacturerId,
         categoryId: selectedCategoryId === "all" ? undefined : selectedCategoryId,
+        size: 500,
       });
     },
   });

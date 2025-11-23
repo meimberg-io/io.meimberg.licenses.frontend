@@ -68,7 +68,7 @@ export default function DepartmentDetail() {
   const { data: allUsersPage } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      return usersApi.listUsers();
+      return usersApi.listUsers({ size: 500 });
     },
   });
 
@@ -77,7 +77,7 @@ export default function DepartmentDetail() {
     queryKey: ["users", "department", id],
     queryFn: async () => {
       if (isNewDepartment || !id) return { content: [], totalElements: 0, totalPages: 0, size: 0, number: 0 };
-      return usersApi.listUsers({ departmentId: id });
+      return usersApi.listUsers({ departmentId: id, size: 500 });
     },
     enabled: !isNewDepartment && !!id,
   });

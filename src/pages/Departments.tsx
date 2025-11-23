@@ -34,7 +34,7 @@ export default function Departments() {
   const { data: departmentsPage, isLoading, error } = useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
-      return departmentsApi.listDepartments();
+      return departmentsApi.listDepartments({ size: 500 });
     },
   });
 
