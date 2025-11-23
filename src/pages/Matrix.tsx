@@ -175,7 +175,10 @@ export default function Matrix() {
         note: assignment.note || "",
       });
     } else {
-      setAssignmentForm({ variantId: "", note: "" });
+      // If empty cell, check if there's only one variant for this product
+      const availableVariants = allVariants?.filter((v) => v.product?.id === productId) || [];
+      const preselectedVariantId = availableVariants.length === 1 ? availableVariants[0].id : "";
+      setAssignmentForm({ variantId: preselectedVariantId, note: "" });
     }
   };
 
@@ -354,7 +357,7 @@ export default function Matrix() {
                   );
                 })}
                 {/* User total column */}
-                <div className="sticky right-0 z-10 bg-muted/50 backdrop-blur border-b border-r border-border p-3 font-semibold text-center">
+                <div className="sticky right-0 z-10 bg-muted/50 backdrop-blur border-b border-r text-sm border-border p-3 font-semibold text-center">
                   {userTotals.get(user.id) ? `€${userTotals.get(user.id)!.toFixed(2)}` : "€0.00"}
                 </div>
               </div>
@@ -368,13 +371,13 @@ export default function Matrix() {
               {products.map((product) => (
                 <div
                   key={`total-${product.id}`}
-                  className="bg-muted/50 border-b border-r border-border p-3 font-semibold text-center"
+                  className="bg-muted/50 border-b text-sm border-r border-border p-3 font-semibold text-center"
                 >
                   {productTotals.get(product.id) ? `€${productTotals.get(product.id)!.toFixed(2)}` : "€0.00"}
                 </div>
               ))}
               {/* Grand total cell (bottom right) */}
-              <div className="sticky right-0 z-20 bg-muted/70 backdrop-blur border-b border-r border-border p-3 font-bold text-center">
+              <div className="sticky text-sm right-0 z-20 bg-muted/70 backdrop-blur border-b border-r border-border p-3 font-bold text-center">
                 €{grandTotal.toFixed(2)}
               </div>
             </div>

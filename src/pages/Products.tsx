@@ -104,26 +104,25 @@ export default function Products() {
               <TableHead>Key</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Manufacturer</TableHead>
-              <TableHead>Description</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {error ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-destructive">
+                <TableCell colSpan={4} className="text-center text-destructive">
                   Error loading products: {error instanceof Error ? error.message : "Unknown error"}
                 </TableCell>
               </TableRow>
             ) : isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">
+                <TableCell colSpan={4} className="text-center">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   No products found. Click "Add Product" to create one.
                 </TableCell>
               </TableRow>
@@ -139,7 +138,6 @@ export default function Products() {
                     <TableCell className="font-medium">{product.key}</TableCell>
                     <TableCell>{product.name}</TableCell>
                     <TableCell>{manufacturer?.name || "-"}</TableCell>
-                    <TableCell className="max-w-md truncate">{product.description || "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <Button 
