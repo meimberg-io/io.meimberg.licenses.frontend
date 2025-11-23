@@ -54,35 +54,35 @@ export default function Matrix() {
   const { data: usersPage } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      return usersApi.listUsers({ size: 500 });
+      return usersApi.listUsers({ size: 200 });
     },
   });
 
   const { data: productsPage } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      return productsApi.listProducts({ size: 500 });
+      return productsApi.listProducts({ size: 200 });
     },
   });
 
   const { data: manufacturersPage } = useQuery({
     queryKey: ["manufacturers"],
     queryFn: async () => {
-      return manufacturersApi.listManufacturers({ size: 500 });
+      return manufacturersApi.listManufacturers({ size: 200 });
     },
   });
 
   const { data: departmentsPage } = useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
-      return departmentsApi.listDepartments({ size: 500 });
+      return departmentsApi.listDepartments({ size: 200 });
     },
   });
 
   const { data: categoriesPage } = useQuery({
     queryKey: ["product-categories"],
     queryFn: async () => {
-      return productCategoriesApi.listProductCategories({ size: 500 });
+      return productCategoriesApi.listProductCategories({ size: 200 });
     },
   });
 
@@ -133,7 +133,7 @@ export default function Matrix() {
   const { data: assignmentsPage } = useQuery({
     queryKey: ["assignments"],
     queryFn: async () => {
-      return assignmentsApi.listAssignments({ size: 500 });
+      return assignmentsApi.listAssignments({ size: 200 });
     },
   });
 

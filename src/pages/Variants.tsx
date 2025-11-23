@@ -54,7 +54,7 @@ export default function Variants() {
   const { data: productsPage } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      return productsApi.listProducts({ size: 500 });
+      return productsApi.listProducts({ size: 200 });
     },
   });
 
