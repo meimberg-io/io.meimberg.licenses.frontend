@@ -39,6 +39,7 @@ export default function Matrix() {
   const queryClient = useQueryClient();
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("all");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
+  const [selectedManufacturerId, setSelectedManufacturerId] = useState<string>("all");
   const [selectedCell, setSelectedCell] = useState<{
     userId: string;
     productId: string;
@@ -87,13 +88,17 @@ export default function Matrix() {
 
   const allProducts = productsPage?.content || [];
   
-  // Filter products by selected category
+  // Filter products by selected category and manufacturer
   const products = useMemo(() => {
-    if (selectedCategoryId === "all") {
-      return allProducts;
+    let filtered = allProducts;
+    if (selectedCategoryId !== "all") {
+      filtered = filtered.filter((product) => product.categoryId === selectedCategoryId);
     }
-    return allProducts.filter((product) => product.categoryId === selectedCategoryId);
-  }, [allProducts, selectedCategoryId]);
+    if (selectedManufacturerId !== "all") {
+      filtered = filtered.filter((product) => product.manufacturerId === selectedManufacturerId);
+    }
+    return filtered;
+  }, [allProducts, selectedCategoryId, selectedManufacturerId]);
   
   // Create manufacturer map for quick lookup
   const manufacturerMap = useMemo(() => {
@@ -347,6 +352,22 @@ export default function Matrix() {
               {categoriesPage?.content?.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
                   {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2 flex-1 max-w-xs">
+          <Label htmlFor="manufacturer-filter">Filter by Manufacturer</Label>
+          <Select value={selectedManufacturerId} onValueChange={setSelectedManufacturerId}>
+            <SelectTrigger id="manufacturer-filter">
+              <SelectValue placeholder="All manufacturers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All manufacturers</SelectItem>
+              {manufacturersPage?.content?.map((manufacturer) => (
+                <SelectItem key={manufacturer.id} value={manufacturer.id}>
+                  {manufacturer.name}
                 </SelectItem>
               ))}
             </SelectContent>
