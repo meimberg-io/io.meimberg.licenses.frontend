@@ -3,17 +3,17 @@ export type UUID = string;
 export interface User {
   id: UUID;
   email: string;
-  display_name: string;
+  displayName: string;
 }
 
 export interface UserCreateRequest {
   email: string;
-  display_name: string;
+  displayName: string;
 }
 
 export interface UserUpdateRequest {
   email?: string;
-  display_name?: string;
+  displayName?: string;
 }
 
 export interface PageUser {
@@ -92,24 +92,24 @@ export type AssignmentStatus = "ACTIVE" | "REVOKED";
 
 export interface Assignment {
   id: UUID;
-  user_id: UUID;
-  product_variant_id: UUID;
+  userId: UUID;
+  productVariantId: UUID;
   status: AssignmentStatus;
-  starts_at?: string | null;
-  ends_at?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
   note?: string | null;
 }
 
 export interface AssignmentCreateRequest {
-  user_id: UUID;
-  product_variant_id: UUID;
-  starts_at?: string | null;
+  userId: UUID;
+  productVariantId: UUID;
+  startsAt?: string | null;
   note?: string | null;
 }
 
 export interface AssignmentUpdateRequest {
   status?: AssignmentStatus;
-  ends_at?: string | null;
+  endsAt?: string | null;
 }
 
 export interface PageAssignment {

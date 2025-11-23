@@ -131,10 +131,15 @@ export default function ProductDetail() {
           throw new Error("Invalid JSON in attributes field");
         }
       }
+      const capacityStr = String(data.capacity || "").trim();
+      const capacity = capacityStr ? parseInt(capacityStr, 10) : null;
+      if (capacityStr && isNaN(capacity!)) {
+        throw new Error("Capacity must be a valid number");
+      }
       return variantsApi.createVariant(id, {
         key: data.key,
         name: data.name,
-        capacity: data.capacity ? parseInt(data.capacity) : null,
+        capacity,
         attributes,
       });
     },
@@ -160,10 +165,15 @@ export default function ProductDetail() {
           throw new Error("Invalid JSON in attributes field");
         }
       }
+      const capacityStr = String(data.capacity || "").trim();
+      const capacity = capacityStr ? parseInt(capacityStr, 10) : null;
+      if (capacityStr && isNaN(capacity!)) {
+        throw new Error("Capacity must be a valid number");
+      }
       return variantsApi.updateVariant(variantId, {
         key: data.key,
         name: data.name,
-        capacity: data.capacity ? parseInt(data.capacity) : null,
+        capacity,
         attributes,
       });
     },
@@ -213,11 +223,32 @@ export default function ProductDetail() {
 
   const handleEditVariant = (variant: ProductVariant) => {
     setEditingVariant(variant);
+    
+    let capacityValue: number | null | undefined = null;
+    if (typeof variant.capacity === 'number') {
+      capacityValue = variant.capacity;
+    } else if (typeof variant.capacity === 'object' && variant.capacity !== null) {
+      const cap = variant.capacity as any;
+      if (cap.present === true && typeof cap.value === 'number') {
+        capacityValue = cap.value;
+      }
+    }
+    
+    let attributesValue: Record<string, any> | null = null;
+    if (variant.attributes && typeof variant.attributes === 'object') {
+      const attrs = variant.attributes as any;
+      if (attrs.present === true && attrs.value) {
+        attributesValue = attrs.value;
+      } else if (!('present' in attrs)) {
+        attributesValue = attrs;
+      }
+    }
+    
     setVariantForm({
       key: variant.key,
       name: variant.name,
-      capacity: variant.capacity?.toString() || "",
-      attributes: variant.attributes ? JSON.stringify(variant.attributes, null, 2) : "",
+      capacity: capacityValue?.toString() || "",
+      attributes: attributesValue ? JSON.stringify(attributesValue, null, 2) : "",
     });
     setVariantDialogOpen(true);
   };
@@ -229,6 +260,8 @@ export default function ProductDetail() {
   };
 
   const handleOpenVariantDialog = () => {
+    setEditingVariant(null);
+    setVariantForm({ key: "", name: "", capacity: "", attributes: "" });
     setVariantDialogOpen(true);
   };
 
@@ -337,38 +370,57 @@ export default function ProductDetail() {
                         Loading variants...
                       </TableCell>
                     </TableRow>
-                  ) : variants?.length === 0 ? (
+                  ) : !variants || variants.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center text-muted-foreground">
                         No variants found. Click "Add Variant" to create one.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    variants?.map((variant) => (
-                      <TableRow key={variant.id}>
-                        <TableCell className="font-medium">{variant.key}</TableCell>
-                        <TableCell>{variant.name}</TableCell>
-                        <TableCell>{variant.capacity ?? "Unlimited"}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditVariant(variant)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deleteVariantMutation.mutate(variant.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    variants.map((variant) => {
+                      let capacityDisplay: string | number = "Unlimited";
+                      if (typeof variant.capacity === 'number') {
+                        capacityDisplay = variant.capacity;
+                      } else if (typeof variant.capacity === 'object' && variant.capacity !== null) {
+                        const cap = variant.capacity as any;
+                        if (cap.present === true) {
+                          if (typeof cap.value === 'number') {
+                            capacityDisplay = cap.value;
+                          } else {
+                            capacityDisplay = "Unlimited";
+                          }
+                        } else if (cap.present === false) {
+                          capacityDisplay = "Unlimited";
+                        } else if ('value' in cap && typeof cap.value === 'number') {
+                          capacityDisplay = cap.value;
+                        }
+                      }
+                      return (
+                        <TableRow key={variant.id}>
+                          <TableCell className="font-medium">{variant.key}</TableCell>
+                          <TableCell>{variant.name}</TableCell>
+                          <TableCell>{capacityDisplay}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditVariant(variant)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteVariantMutation.mutate(variant.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -411,7 +463,7 @@ export default function ProductDetail() {
                 <Input
                   id="capacity"
                   type="number"
-                  value={variantForm.capacity}
+                  value={typeof variantForm.capacity === 'string' ? variantForm.capacity : String(variantForm.capacity || '')}
                   onChange={(e) => setVariantForm({ ...variantForm, capacity: e.target.value })}
                   placeholder="Leave empty for unlimited"
                 />

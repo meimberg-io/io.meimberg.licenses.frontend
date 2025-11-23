@@ -48,9 +48,9 @@ export default function Assignments() {
   const [open, setOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [formData, setFormData] = useState({
-    user_id: "",
-    product_variant_id: "",
-    starts_at: "",
+    userId: "",
+    productVariantId: "",
+    startsAt: "",
     note: "",
   });
   const queryClient = useQueryClient();
@@ -98,15 +98,14 @@ export default function Assignments() {
     },
   });
 
-  // Enrich assignments with user and variant details
   const assignmentsWithDetails = useMemo<AssignmentWithDetails[]>(() => {
     if (!assignmentsPage?.content || !usersPage?.content || !allVariants) {
       return [];
     }
     const users = usersPage.content;
     return assignmentsPage.content.map(assignment => {
-      const user = users.find(u => u.id === assignment.user_id);
-      const variant = allVariants.find(v => v.id === assignment.product_variant_id);
+      const user = users.find(u => u.id === assignment.userId);
+      const variant = allVariants.find(v => v.id === assignment.productVariantId);
       const product = variant?.product;
       return {
         ...assignment,
@@ -120,9 +119,9 @@ export default function Assignments() {
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       return assignmentsApi.createAssignment({
-        user_id: data.user_id,
-        product_variant_id: data.product_variant_id,
-        starts_at: data.starts_at || null,
+        userId: data.userId,
+        productVariantId: data.productVariantId,
+        startsAt: data.startsAt || null,
         note: data.note || null,
       });
     },
@@ -130,7 +129,7 @@ export default function Assignments() {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
       toast.success("Assignment created successfully");
       setOpen(false);
-      setFormData({ user_id: "", product_variant_id: "", starts_at: "", note: "" });
+      setFormData({ userId: "", productVariantId: "", startsAt: "", note: "" });
     },
     onError: (error: any) => {
       console.error("Create assignment error:", error);
@@ -142,7 +141,7 @@ export default function Assignments() {
     mutationFn: async (id: string) => {
       return assignmentsApi.updateAssignment(id, {
         status: "REVOKED",
-        ends_at: new Date().toISOString(),
+        endsAt: new Date().toISOString(),
       });
     },
     onSuccess: () => {
@@ -159,7 +158,7 @@ export default function Assignments() {
     mutationFn: async (id: string) => {
       return assignmentsApi.updateAssignment(id, {
         status: "ACTIVE",
-        ends_at: null,
+        endsAt: null,
       });
     },
     onSuccess: () => {
@@ -191,7 +190,7 @@ export default function Assignments() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingAssignment(null);
-      setFormData({ user_id: "", product_variant_id: "", starts_at: "", note: "" });
+      setFormData({ userId: "", productVariantId: "", startsAt: "", note: "" });
     }
   };
 
@@ -231,10 +230,10 @@ export default function Assignments() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="user_id">User</Label>
+                  <Label htmlFor="userId">User</Label>
                   <Select 
-                    value={formData.user_id} 
-                    onValueChange={(value) => setFormData({ ...formData, user_id: value })} 
+                    value={formData.userId} 
+                    onValueChange={(value) => setFormData({ ...formData, userId: value })} 
                     required
                   >
                     <SelectTrigger>
@@ -243,17 +242,17 @@ export default function Assignments() {
                     <SelectContent>
                       {users.map((user) => (
                         <SelectItem key={user.id} value={user.id}>
-                          {user.display_name} ({user.email})
+                          {user.displayName} ({user.email})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="product_variant_id">Product Variant</Label>
+                  <Label htmlFor="productVariantId">Product Variant</Label>
                   <Select
-                    value={formData.product_variant_id}
-                    onValueChange={(value) => setFormData({ ...formData, product_variant_id: value })}
+                    value={formData.productVariantId}
+                    onValueChange={(value) => setFormData({ ...formData, productVariantId: value })}
                     required
                   >
                     <SelectTrigger>
@@ -269,12 +268,12 @@ export default function Assignments() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="starts_at">Start Date (optional)</Label>
+                  <Label htmlFor="startsAt">Start Date (optional)</Label>
                   <Input
-                    id="starts_at"
+                    id="startsAt"
                     type="datetime-local"
-                    value={formData.starts_at}
-                    onChange={(e) => setFormData({ ...formData, starts_at: e.target.value })}
+                    value={formData.startsAt}
+                    onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -328,17 +327,17 @@ export default function Assignments() {
                 <TableRow key={assignment.id}>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{assignment.user?.display_name || "-"}</div>
+                      <div className="font-medium">{assignment.user?.displayName || "-"}</div>
                       <div className="text-sm text-muted-foreground">{assignment.user?.email || "-"}</div>
                     </div>
                   </TableCell>
                   <TableCell>{assignment.product?.name || "-"}</TableCell>
                   <TableCell>{assignment.variant?.name || "-"}</TableCell>
                   <TableCell>
-                    {assignment.starts_at ? format(new Date(assignment.starts_at), "PPp") : "-"}
+                    {assignment.startsAt ? format(new Date(assignment.startsAt), "PPp") : "-"}
                   </TableCell>
                   <TableCell>
-                    {assignment.ends_at ? format(new Date(assignment.ends_at), "PPp") : "-"}
+                    {assignment.endsAt ? format(new Date(assignment.endsAt), "PPp") : "-"}
                   </TableCell>
                   <TableCell>{getStatusBadge(assignment.status)}</TableCell>
                   <TableCell className="text-right">

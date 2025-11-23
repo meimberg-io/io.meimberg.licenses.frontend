@@ -28,7 +28,7 @@ import type { User } from "@/integrations/api/types";
 export default function Users() {
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState({ email: "", display_name: "" });
+  const [formData, setFormData] = useState({ email: "", displayName: "" });
   const queryClient = useQueryClient();
 
   const { data: usersPage, isLoading } = useQuery({
@@ -39,14 +39,14 @@ export default function Users() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { email: string; display_name: string }) => {
+    mutationFn: async (data: { email: string; displayName: string }) => {
       return usersApi.createUser(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success("User created successfully");
       setOpen(false);
-      setFormData({ email: "", display_name: "" });
+      setFormData({ email: "", displayName: "" });
     },
     onError: (error: any) => {
       console.error("Create user error:", error);
@@ -55,7 +55,7 @@ export default function Users() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { email?: string; display_name?: string } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { email?: string; displayName?: string } }) => {
       return usersApi.updateUser(id, data);
     },
     onSuccess: () => {
@@ -63,7 +63,7 @@ export default function Users() {
       toast.success("User updated successfully");
       setOpen(false);
       setEditingUser(null);
-      setFormData({ email: "", display_name: "" });
+      setFormData({ email: "", displayName: "" });
     },
     onError: (error: any) => {
       console.error("Update user error:", error);
@@ -97,7 +97,7 @@ export default function Users() {
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    setFormData({ email: user.email, display_name: user.display_name });
+    setFormData({ email: user.email, displayName: user.displayName });
     setOpen(true);
   };
 
@@ -105,7 +105,7 @@ export default function Users() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingUser(null);
-      setFormData({ email: "", display_name: "" });
+      setFormData({ email: "", displayName: "" });
     }
   };
 
@@ -145,11 +145,11 @@ export default function Users() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="display_name">Display Name</Label>
+                  <Label htmlFor="displayName">Display Name</Label>
                   <Input
-                    id="display_name"
-                    value={formData.display_name}
-                    onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                    id="displayName"
+                    value={formData.displayName}
+                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
                     required
                   />
                 </div>
@@ -190,7 +190,7 @@ export default function Users() {
               users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.display_name}</TableCell>
+                  <TableCell>{user.displayName}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(user)}>
