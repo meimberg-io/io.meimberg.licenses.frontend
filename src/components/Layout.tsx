@@ -4,14 +4,16 @@ import { AppSidebar } from "@/components/AppSidebar";
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <header className="h-14 border-b border-border bg-card flex items-center px-4 sticky top-0 z-10">
-            <SidebarTrigger className="mr-4" />
-            <h1 className="text-lg font-semibold text-foreground">License Management System</h1>
-          </header>
-          <main className="flex-1 p-6">{children}</main>
+      <header className="h-14 bg-[#000066] flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-20">
+        <img src="/logo_trans.png" alt="Logo" width={84} height={20} />
+        <h1 className="text-lg font-semibold text-white">License Management System</h1>
+      </header>
+      <div className="min-h-screen flex w-full bg-background flex-col pt-14">
+        <div className="flex flex-1">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
+            <main className="flex-1 p-6">{children}</main>
+          </div>
         </div>
       </div>
     </SidebarProvider>
