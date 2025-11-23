@@ -34,10 +34,24 @@ The API base URL is configured via environment variable:
 
 - Default: `http://localhost:8080/api/v1`
 - Set `VITE_API_BASE_URL` in `.env` to override
+- Production: Set at build time in Dockerfile (see `env.example`)
 
 ## Development
 
 The frontend connects to the Spring Boot backend API. Make sure the backend is running on `http://localhost:8080` (or update `VITE_API_BASE_URL` accordingly).
+
+## Deployment
+
+Automatic deployment via GitHub Actions on push to `main` branch.
+
+**Documentation:**
+- [DEPLOYMENT.md](docs/DEPLOYMENT.md) - Deployment operations and troubleshooting
+- [GITHUB-SETUP.md](docs/GITHUB-SETUP.md) - Initial GitHub setup
+
+**Quick deploy:**
+```bash
+git push origin main
+```
 
 ## Project Structure
 
