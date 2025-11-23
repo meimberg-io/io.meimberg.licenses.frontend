@@ -33,9 +33,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import type { Assignment, User, ProductVariant, Product } from "@/integrations/api/types";
 
 interface AssignmentWithDetails extends Assignment {
@@ -50,7 +49,6 @@ export default function Assignments() {
   const [formData, setFormData] = useState({
     userId: "",
     productVariantId: "",
-    startsAt: "",
     note: "",
   });
   const queryClient = useQueryClient();
@@ -121,7 +119,6 @@ export default function Assignments() {
       return assignmentsApi.createAssignment({
         userId: data.userId,
         productVariantId: data.productVariantId,
-        startsAt: data.startsAt || null,
         note: data.note || null,
       });
     },
@@ -129,7 +126,7 @@ export default function Assignments() {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
       toast.success("Assignment created successfully");
       setOpen(false);
-      setFormData({ userId: "", productVariantId: "", startsAt: "", note: "" });
+      setFormData({ userId: "", productVariantId: "", note: "" });
     },
     onError: (error: any) => {
       console.error("Create assignment error:", error);
@@ -137,37 +134,17 @@ export default function Assignments() {
     },
   });
 
-  const revokeMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return assignmentsApi.updateAssignment(id, {
-        status: "REVOKED",
-        endsAt: new Date().toISOString(),
-      });
+      return assignmentsApi.deleteAssignment(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
-      toast.success("Assignment revoked successfully");
+      toast.success("Assignment deleted successfully");
     },
     onError: (error: any) => {
-      console.error("Revoke assignment error:", error);
-      toast.error(error?.message || "Failed to revoke assignment");
-    },
-  });
-
-  const reactivateMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return assignmentsApi.updateAssignment(id, {
-        status: "ACTIVE",
-        endsAt: null,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assignments"] });
-      toast.success("Assignment reactivated successfully");
-    },
-    onError: (error: any) => {
-      console.error("Reactivate assignment error:", error);
-      toast.error(error?.message || "Failed to reactivate assignment");
+      console.error("Delete assignment error:", error);
+      toast.error(error?.message || "Failed to delete assignment");
     },
   });
 
@@ -176,32 +153,20 @@ export default function Assignments() {
     createMutation.mutate(formData);
   };
 
-  const handleRevoke = (assignment: Assignment) => {
-    if (confirm("Are you sure you want to revoke this assignment?")) {
-      revokeMutation.mutate(assignment.id);
+  const handleDelete = (assignment: Assignment) => {
+    if (confirm("Are you sure you want to delete this assignment?")) {
+      deleteMutation.mutate(assignment.id);
     }
-  };
-
-  const handleReactivate = (assignment: Assignment) => {
-    reactivateMutation.mutate(assignment.id);
   };
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingAssignment(null);
-      setFormData({ userId: "", productVariantId: "", startsAt: "", note: "" });
+      setFormData({ userId: "", productVariantId: "", note: "" });
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    if (status === "ACTIVE") {
-      return <Badge variant="default">Active</Badge>;
-    } else if (status === "REVOKED") {
-      return <Badge variant="destructive">Revoked</Badge>;
-    }
-    return <Badge variant="secondary">{status}</Badge>;
-  };
 
   const users = usersPage?.content || [];
   const assignments = assignmentsWithDetails;
@@ -268,15 +233,6 @@ export default function Assignments() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="startsAt">Start Date (optional)</Label>
-                  <Input
-                    id="startsAt"
-                    type="datetime-local"
-                    value={formData.startsAt}
-                    onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
                   <Label htmlFor="note">Note (optional)</Label>
                   <Textarea
                     id="note"
@@ -303,22 +259,19 @@ export default function Assignments() {
               <TableHead>User</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Variant</TableHead>
-              <TableHead>Starts</TableHead>
-              <TableHead>Ends</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center">
+                <TableCell colSpan={4} className="text-center">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : assignments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   No assignments found. Click "New Assignment" to create one.
                 </TableCell>
               </TableRow>
@@ -333,34 +286,16 @@ export default function Assignments() {
                   </TableCell>
                   <TableCell>{assignment.product?.name || "-"}</TableCell>
                   <TableCell>{assignment.variant?.name || "-"}</TableCell>
-                  <TableCell>
-                    {assignment.startsAt ? format(new Date(assignment.startsAt), "PPp") : "-"}
-                  </TableCell>
-                  <TableCell>
-                    {assignment.endsAt ? format(new Date(assignment.endsAt), "PPp") : "-"}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(assignment.status)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {assignment.status === "ACTIVE" ? (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleRevoke(assignment)}
-                          title="Revoke"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleReactivate(assignment)}
-                          title="Reactivate"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDelete(assignment)}
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

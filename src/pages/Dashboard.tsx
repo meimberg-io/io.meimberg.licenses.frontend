@@ -28,42 +28,35 @@ export default function Dashboard() {
     },
   });
 
-  const { data: activeAssignmentsPage } = useQuery({
-    queryKey: ["assignments", "ACTIVE"],
-    queryFn: async () => {
-      return assignmentsApi.listAssignments({ status: "ACTIVE", size: 1 });
-    },
-  });
-
-  // Calculate variants count by fetching all products and their variants
+  // Calculate variants count by fetching all products and their variants in parallel
   const { data: variantsCount } = useQuery({
     queryKey: ["variants-count", productsPage?.content?.map(p => p.id).join(",")],
     queryFn: async () => {
-      if (!productsPage?.content) return 0;
-      let count = 0;
-      for (const product of productsPage.content) {
-        try {
-          const variants = await variantsApi.listVariantsByProduct(product.id);
-          count += variants.length;
-        } catch (error) {
-          console.error(`Failed to fetch variants for product ${product.id}:`, error);
-        }
+      if (!productsPage?.content || productsPage.content.length === 0) return 0;
+      try {
+        const variantPromises = productsPage.content.map(product =>
+          variantsApi.listVariantsByProduct(product.id).catch(() => [])
+        );
+        const variantArrays = await Promise.all(variantPromises);
+        return variantArrays.reduce((sum, variants) => sum + variants.length, 0);
+      } catch (error) {
+        console.error("Failed to fetch variants count:", error);
+        return 0;
       }
-      return count;
     },
-    enabled: !!productsPage?.content,
+    enabled: !!productsPage?.content && productsPage.content.length > 0,
   });
 
   const stats = [
     {
       title: "Total Users",
-      value: usersPage?.total_elements ?? "...",
+      value: usersPage?.totalElements ?? "...",
       icon: Users,
       description: "Registered users in the system",
     },
     {
       title: "Products",
-      value: productsPage?.total_elements ?? "...",
+      value: productsPage?.totalElements ?? "...",
       icon: Package,
       description: "Available products",
     },
@@ -74,8 +67,8 @@ export default function Dashboard() {
       description: "Product variants configured",
     },
     {
-      title: "Active Assignments",
-      value: activeAssignmentsPage?.total_elements ?? "...",
+      title: "Assignments",
+      value: assignmentsPage?.totalElements ?? "...",
       icon: FileText,
       description: "Current license assignments",
     },
@@ -105,6 +98,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
 
 

@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Product, ProductVariant } from "@/integrations/api/types";
@@ -45,8 +46,8 @@ export default function Variants() {
     product_id: "",
     key: "",
     name: "",
-    capacity: "",
-    attributes: "",
+    description: "",
+    price: "",
   });
   const queryClient = useQueryClient();
 
@@ -81,19 +82,11 @@ export default function Variants() {
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      let attributes: Record<string, any> | null = null;
-      if (data.attributes.trim()) {
-        try {
-          attributes = JSON.parse(data.attributes);
-        } catch {
-          throw new Error("Invalid JSON in attributes field");
-        }
-      }
       return variantsApi.createVariant(data.product_id, {
         key: data.key,
         name: data.name,
-        capacity: data.capacity ? parseInt(data.capacity) : null,
-        attributes,
+        description: data.description || null,
+        price: data.price ? parseFloat(data.price) : null,
       });
     },
     onSuccess: () => {
@@ -101,7 +94,7 @@ export default function Variants() {
       queryClient.invalidateQueries({ queryKey: ["product-variants"] });
       toast.success("Variant created successfully");
       setOpen(false);
-      setFormData({ product_id: "", key: "", name: "", capacity: "", attributes: "" });
+      setFormData({ product_id: "", key: "", name: "", description: "", price: "" });
     },
     onError: (error: any) => {
       console.error("Create variant error:", error);
@@ -111,19 +104,11 @@ export default function Variants() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      let attributes: Record<string, any> | null = null;
-      if (data.attributes.trim()) {
-        try {
-          attributes = JSON.parse(data.attributes);
-        } catch {
-          throw new Error("Invalid JSON in attributes field");
-        }
-      }
       return variantsApi.updateVariant(id, {
         key: data.key,
         name: data.name,
-        capacity: data.capacity ? parseInt(data.capacity) : null,
-        attributes,
+        description: data.description || null,
+        price: data.price ? parseFloat(data.price) : null,
       });
     },
     onSuccess: () => {
@@ -132,7 +117,7 @@ export default function Variants() {
       toast.success("Variant updated successfully");
       setOpen(false);
       setEditingVariant(null);
-      setFormData({ product_id: "", key: "", name: "", capacity: "", attributes: "" });
+      setFormData({ product_id: "", key: "", name: "", description: "", price: "" });
     },
     onError: (error: any) => {
       console.error("Update variant error:", error);
@@ -167,11 +152,11 @@ export default function Variants() {
   const handleEdit = (variant: VariantWithProduct) => {
     setEditingVariant(variant);
     setFormData({
-      product_id: variant.product_id,
+      product_id: variant.productId,
       key: variant.key,
       name: variant.name,
-      capacity: variant.capacity?.toString() || "",
-      attributes: variant.attributes ? JSON.stringify(variant.attributes, null, 2) : "",
+      description: variant.description || "",
+      price: variant.price?.toString() || "",
     });
     setOpen(true);
   };
@@ -180,7 +165,7 @@ export default function Variants() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingVariant(null);
-      setFormData({ product_id: "", key: "", name: "", capacity: "", attributes: "" });
+      setFormData({ product_id: "", key: "", name: "", description: "", price: "" });
     }
   };
 
@@ -200,10 +185,14 @@ export default function Variants() {
           </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleSubmit}>
-              <DialogHeader>
+              <DialogHeader className="bg-muted/50 -mx-6 -mt-6 px-6 py-4 rounded-t-lg">
                 <DialogTitle>{editingVariant ? "Edit Variant" : "Create New Variant"}</DialogTitle>
                 <DialogDescription>
-                  {editingVariant ? "Update variant details" : "Add a new product variant"}
+                  {editingVariant 
+                    ? products.find(p => p.id === editingVariant.productId)?.name || "Product"
+                    : formData.product_id 
+                      ? products.find(p => p.id === formData.product_id)?.name || "Product"
+                      : "Product"}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -247,23 +236,23 @@ export default function Variants() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="capacity">Capacity</Label>
-                  <Input
-                    id="capacity"
-                    type="number"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                    placeholder="Leave empty for unlimited"
+                  <Label htmlFor="description">Description</Label>
+                  <RichTextEditor
+                    value={formData.description}
+                    onChange={(value) => setFormData({ ...formData, description: value })}
+                    placeholder="Enter variant description..."
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="attributes">Attributes (JSON)</Label>
-                  <Textarea
-                    id="attributes"
-                    value={formData.attributes}
-                    onChange={(e) => setFormData({ ...formData, attributes: e.target.value })}
-                    placeholder='{"key": "value"}'
-                    rows={4}
+                  <Label htmlFor="price">Price (EUR)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    placeholder="0.00"
                   />
                 </div>
               </div>
@@ -284,7 +273,7 @@ export default function Variants() {
               <TableHead>Product</TableHead>
               <TableHead>Key</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Capacity</TableHead>
+              <TableHead className="text-right">Price (EUR)</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -307,7 +296,7 @@ export default function Variants() {
                   <TableCell className="font-medium">{variant.product?.name || "-"}</TableCell>
                   <TableCell>{variant.key}</TableCell>
                   <TableCell>{variant.name}</TableCell>
-                  <TableCell>{variant.capacity ?? "Unlimited"}</TableCell>
+                  <TableCell className="text-right">{variant.price ? `€${variant.price.toFixed(2)}` : "-"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(variant)}>
@@ -327,6 +316,7 @@ export default function Variants() {
     </div>
   );
 }
+
 
 
 

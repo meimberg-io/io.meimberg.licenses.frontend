@@ -4,8 +4,8 @@ import * as usersApi from "@/integrations/api/users";
 import * as variantsApi from "@/integrations/api/variants";
 import * as assignmentsApi from "@/integrations/api/assignments";
 import * as productsApi from "@/integrations/api/products";
+import * as manufacturersApi from "@/integrations/api/manufacturers";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Calendar, StickyNote } from "lucide-react";
+import { CheckCircle2, PlusCircle, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Assignment, User, ProductVariant, Product } from "@/integrations/api/types";
@@ -37,12 +37,11 @@ export default function Matrix() {
   const queryClient = useQueryClient();
   const [selectedCell, setSelectedCell] = useState<{
     userId: string;
-    variantId: string;
+    productId: string;
     assignment?: Assignment;
   } | null>(null);
   const [assignmentForm, setAssignmentForm] = useState({
-    startsAt: "",
-    endsAt: "",
+    variantId: "",
     note: "",
   });
 
@@ -61,7 +60,23 @@ export default function Matrix() {
     },
   });
 
+  const { data: manufacturersPage } = useQuery({
+    queryKey: ["manufacturers"],
+    queryFn: async () => {
+      return manufacturersApi.listManufacturers();
+    },
+  });
+
   const products = productsPage?.content || [];
+  
+  // Create manufacturer map for quick lookup
+  const manufacturerMap = useMemo(() => {
+    const map = new Map<string, string>();
+    manufacturersPage?.content?.forEach((manufacturer) => {
+      map.set(manufacturer.id, manufacturer.name);
+    });
+    return map;
+  }, [manufacturersPage]);
 
   // Fetch all variants for all products
   const { data: allVariants } = useQuery({
@@ -93,14 +108,14 @@ export default function Matrix() {
 
   // Create assignment mutation
   const createAssignmentMutation = useMutation({
-    mutationFn: async (data: { userId: string; productVariantId: string; startsAt?: string | null; note?: string | null }) => {
+    mutationFn: async (data: { userId: string; productVariantId: string; note?: string | null }) => {
       return assignmentsApi.createAssignment(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
       toast.success("License assigned successfully");
       setSelectedCell(null);
-      setAssignmentForm({ startsAt: "", endsAt: "", note: "" });
+      setAssignmentForm({ variantId: "", note: "" });
     },
     onError: (error: any) => {
       console.error("Create assignment error:", error);
@@ -108,101 +123,148 @@ export default function Matrix() {
     },
   });
 
-  // Update assignment mutation (revoke/reactivate)
-  const updateAssignmentMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { status?: "ACTIVE" | "REVOKED"; endsAt?: string | null } }) => {
-      return assignmentsApi.updateAssignment(id, data);
+  // Delete assignment mutation
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return assignmentsApi.deleteAssignment(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
-      toast.success("Assignment updated successfully");
+      toast.success("Assignment deleted successfully");
       setSelectedCell(null);
-      setAssignmentForm({ startsAt: "", endsAt: "", note: "" });
+      setAssignmentForm({ variantId: "", note: "" });
     },
     onError: (error: any) => {
-      console.error("Update assignment error:", error);
-      toast.error(error?.message || "Failed to update assignment");
+      console.error("Delete assignment error:", error);
+      toast.error(error?.message || "Failed to delete assignment");
     },
   });
 
-  // Create assignment map for quick lookup
+  // Create assignment map for quick lookup: userId-productId -> Assignment
+  // Also create variant map for quick lookup: variantId -> Variant
   const assignmentMap = useMemo(() => {
     const map = new Map<string, Assignment>();
     assignmentsPage?.content?.forEach((assignment) => {
-      const key = `${assignment.userId}-${assignment.productVariantId}`;
-      map.set(key, assignment);
+      // Find the product for this variant
+      const variant = allVariants?.find(v => v.id === assignment.productVariantId);
+      if (variant?.product?.id) {
+        const key = `${assignment.userId}-${variant.product.id}`;
+        map.set(key, assignment);
+      }
     });
     return map;
-  }, [assignmentsPage]);
+  }, [assignmentsPage, allVariants]);
 
-  const handleCellClick = (userId: string, variantId: string) => {
-    const key = `${userId}-${variantId}`;
+  const variantMap = useMemo(() => {
+    const map = new Map<string, VariantWithProduct>();
+    allVariants?.forEach((variant) => {
+      map.set(variant.id, variant);
+    });
+    return map;
+  }, [allVariants]);
+
+  const handleCellClick = (userId: string, productId: string) => {
+    const key = `${userId}-${productId}`;
     const assignment = assignmentMap.get(key);
     
-    setSelectedCell({ userId, variantId, assignment });
+    setSelectedCell({ userId, productId, assignment });
     
     if (assignment) {
       setAssignmentForm({
-        startsAt: assignment.startsAt ? assignment.startsAt.split("T")[0] : "",
-        endsAt: assignment.endsAt ? assignment.endsAt.split("T")[0] : "",
+        variantId: assignment.productVariantId,
         note: assignment.note || "",
       });
     } else {
-      setAssignmentForm({ startsAt: "", endsAt: "", note: "" });
+      setAssignmentForm({ variantId: "", note: "" });
     }
   };
 
   const handleSave = () => {
-    if (!selectedCell) return;
+    if (!selectedCell || !assignmentForm.variantId) return;
 
+    const saveAssignment = () => {
+      createAssignmentMutation.mutate({
+        userId: selectedCell.userId,
+        productVariantId: assignmentForm.variantId,
+        note: assignmentForm.note || null,
+      });
+    };
+
+    // If there's an existing assignment, delete it first (to handle variant change or note update)
     if (selectedCell.assignment) {
-      // Update existing assignment (revoke/reactivate)
-      const isActive = selectedCell.assignment.status === "ACTIVE";
-      updateAssignmentMutation.mutate({
-        id: selectedCell.assignment.id,
-        data: {
-          status: isActive ? "REVOKED" : "ACTIVE",
-          endsAt: isActive ? (assignmentForm.endsAt || new Date().toISOString()) : null,
+      deleteAssignmentMutation.mutate(selectedCell.assignment.id, {
+        onSuccess: () => {
+          // After deletion, create the new assignment
+          saveAssignment();
         },
       });
     } else {
       // Create new assignment
-      createAssignmentMutation.mutate({
-        userId: selectedCell.userId,
-        productVariantId: selectedCell.variantId,
-        startsAt: assignmentForm.startsAt || null,
-        note: assignmentForm.note || null,
-      });
+      saveAssignment();
     }
   };
 
-  const handleRevoke = () => {
-    if (selectedCell?.assignment && selectedCell.assignment.status === "ACTIVE") {
-      updateAssignmentMutation.mutate({
-        id: selectedCell.assignment.id,
-        data: {
-          status: "REVOKED",
-          endsAt: new Date().toISOString(),
-        },
-      });
+  const handleDelete = () => {
+    if (selectedCell?.assignment) {
+      deleteAssignmentMutation.mutate(selectedCell.assignment.id);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "bg-green-500/20 hover:bg-green-500/30 border-green-500/50";
-      case "REVOKED":
-        return "bg-red-500/20 hover:bg-red-500/30 border-red-500/50";
-      default:
-        return "bg-primary/20 hover:bg-primary/30 border-primary/50";
-    }
-  };
 
   const users = usersPage?.content || [];
   const variants = allVariants || [];
 
-  if (!usersPage || !allVariants) {
+  // Calculate totals (sum of prices)
+  const productTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    products.forEach((product) => {
+      let sum = 0;
+      users.forEach((user) => {
+        const key = `${user.id}-${product.id}`;
+        const assignment = assignmentMap.get(key);
+        if (assignment) {
+          const variant = variantMap.get(assignment.productVariantId);
+          if (variant?.price) {
+            sum += variant.price;
+          }
+        }
+      });
+      totals.set(product.id, sum);
+    });
+    return totals;
+  }, [products, users, assignmentMap, variantMap]);
+
+  const userTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    users.forEach((user) => {
+      let sum = 0;
+      products.forEach((product) => {
+        const key = `${user.id}-${product.id}`;
+        const assignment = assignmentMap.get(key);
+        if (assignment) {
+          const variant = variantMap.get(assignment.productVariantId);
+          if (variant?.price) {
+            sum += variant.price;
+          }
+        }
+      });
+      totals.set(user.id, sum);
+    });
+    return totals;
+  }, [products, users, assignmentMap, variantMap]);
+
+  const grandTotal = useMemo(() => {
+    let sum = 0;
+    assignmentMap.forEach((assignment) => {
+      const variant = variantMap.get(assignment.productVariantId);
+      if (variant?.price) {
+        sum += variant.price;
+      }
+    });
+    return sum;
+  }, [assignmentMap, variantMap]);
+
+  if (!usersPage || (products.length > 0 && !allVariants)) {
     return <div className="p-8">Loading...</div>;
   }
 
@@ -217,27 +279,30 @@ export default function Matrix() {
 
       <div className="border border-border rounded-lg bg-card overflow-auto">
         <div className="min-w-max">
-          <div className="grid gap-0" style={{ gridTemplateColumns: `200px repeat(${variants.length}, 140px)` }}>
+          <div className="grid gap-0" style={{ gridTemplateColumns: `200px repeat(${products.length}, 140px) 140px` }}>
             {/* Header row */}
             <div className="sticky left-0 z-20 bg-muted/50 backdrop-blur border-b border-r border-border p-3 font-semibold">
-              User / License
+              User / Product
             </div>
-            {variants.map((variant) => (
+            {products.map((product) => (
               <div
-                key={variant.id}
+                key={product.id}
                 className="bg-muted/30 border-b border-r border-border p-2 text-xs"
               >
-                <div className="font-semibold truncate" title={variant.product?.name}>
-                  {variant.product?.name || "-"}
+                <div className="font-semibold truncate" title={product.name}>
+                  {product.name || "-"}
                 </div>
-                <div className="text-muted-foreground truncate" title={variant.name}>
-                  {variant.name}
-                </div>
-                {variant.capacity && (
-                  <div className="text-muted-foreground text-[10px]">Cap: {variant.capacity}</div>
+                {product.manufacturerId && (
+                  <div className="text-muted-foreground truncate text-[10px] mt-0.5" title={manufacturerMap.get(product.manufacturerId) || ""}>
+                    {manufacturerMap.get(product.manufacturerId) || "-"}
+                  </div>
                 )}
               </div>
             ))}
+            {/* Header for user totals column */}
+            <div className="bg-muted/30 border-b border-r border-border p-2 text-xs font-semibold">
+              Total
+            </div>
 
             {/* Data rows */}
             {users.map((user) => (
@@ -250,34 +315,30 @@ export default function Matrix() {
                     {user.email}
                   </div>
                 </div>
-                {variants.map((variant) => {
-                  const key = `${user.id}-${variant.id}`;
+                {products.map((product) => {
+                  const key = `${user.id}-${product.id}`;
                   const assignment = assignmentMap.get(key);
+                  const assignedVariant = assignment ? variantMap.get(assignment.productVariantId) : null;
                   
                   return (
                     <button
                       key={key}
-                      onClick={() => handleCellClick(user.id, variant.id)}
+                      onClick={() => handleCellClick(user.id, product.id)}
                       className={cn(
                         "border-b border-r border-border p-2 transition-all duration-200 hover:scale-105 relative group",
                         assignment
-                          ? getStatusColor(assignment.status)
+                          ? "bg-green-500/20 hover:bg-green-500/30 border-green-500/50"
                           : "hover:bg-muted/50"
                       )}
                     >
-                      {assignment ? (
+                      {assignment && assignedVariant ? (
                         <div className="flex flex-col items-center justify-center gap-1 h-full">
-                          <CheckCircle2 className="h-5 w-5 text-foreground" />
-                          <Badge
-                            variant={assignment.status === "ACTIVE" ? "default" : "destructive"}
-                            className="text-[10px] px-1 py-0"
-                          >
-                            {assignment.status}
-                          </Badge>
-                          {assignment.endsAt && (
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Calendar className="h-2.5 w-2.5" />
-                              {new Date(assignment.endsAt).toLocaleDateString()}
+                          <div className="text-xs font-medium text-center truncate w-full" title={assignedVariant.name}>
+                            {assignedVariant.name}
+                          </div>
+                          {assignedVariant.price && (
+                            <div className="text-[10px] text-muted-foreground">
+                              €{assignedVariant.price.toFixed(2)}
                             </div>
                           )}
                           {assignment.note && (
@@ -286,14 +347,37 @@ export default function Matrix() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-center h-full opacity-0 group-hover:opacity-100 transition-opacity">
-                          <XCircle className="h-5 w-5 text-muted-foreground" />
+                          <PlusCircle className="h-5 w-5 text-muted-foreground" />
                         </div>
                       )}
                     </button>
                   );
                 })}
+                {/* User total column */}
+                <div className="sticky right-0 z-10 bg-muted/50 backdrop-blur border-b border-r border-border p-3 font-semibold text-center">
+                  {userTotals.get(user.id) ? `€${userTotals.get(user.id)!.toFixed(2)}` : "€0.00"}
+                </div>
               </div>
             ))}
+            
+            {/* Footer row - Product totals */}
+            <div className="contents">
+              <div className="sticky left-0 z-20 bg-muted/50 backdrop-blur border-b border-r border-border p-3 font-semibold">
+                Total
+              </div>
+              {products.map((product) => (
+                <div
+                  key={`total-${product.id}`}
+                  className="bg-muted/50 border-b border-r border-border p-3 font-semibold text-center"
+                >
+                  {productTotals.get(product.id) ? `€${productTotals.get(product.id)!.toFixed(2)}` : "€0.00"}
+                </div>
+              ))}
+              {/* Grand total cell (bottom right) */}
+              <div className="sticky right-0 z-20 bg-muted/70 backdrop-blur border-b border-r border-border p-3 font-bold text-center">
+                €{grandTotal.toFixed(2)}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -303,27 +387,22 @@ export default function Matrix() {
           <div className="w-4 h-4 rounded bg-green-500/20 border border-green-500/50" />
           <span className="text-muted-foreground">Active</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-red-500/20 border border-red-500/50" />
-          <span className="text-muted-foreground">Revoked</span>
-        </div>
       </div>
 
       <Dialog open={!!selectedCell} onOpenChange={(open) => !open && setSelectedCell(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {selectedCell?.assignment ? "Edit Assignment" : "Create Assignment"}
+              {selectedCell?.assignment ? "Change Variant" : "Assign Variant"}
             </DialogTitle>
             <DialogDescription>
-              {selectedCell && users && variants && (
+              {selectedCell && users && products && (
                 <>
-                  Assign{" "}
+                  Select variant for{" "}
                   <span className="font-semibold">
-                    {variants.find((v) => v.id === selectedCell.variantId)?.product?.name} -{" "}
-                    {variants.find((v) => v.id === selectedCell.variantId)?.name}
+                    {products.find((p) => p.id === selectedCell.productId)?.name}
                   </span>{" "}
-                  to{" "}
+                  for user{" "}
                   <span className="font-semibold">
                     {users.find((u) => u.id === selectedCell.userId)?.displayName}
                   </span>
@@ -332,36 +411,26 @@ export default function Matrix() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            {selectedCell?.assignment && (
-              <div className="grid gap-2">
-                <Label>Current Status</Label>
-                <Badge variant={selectedCell.assignment.status === "ACTIVE" ? "default" : "destructive"}>
-                  {selectedCell.assignment.status}
-                </Badge>
-              </div>
-            )}
-            {!selectedCell?.assignment && (
-              <div className="grid gap-2">
-                <Label htmlFor="startsAt">Start Date (Optional)</Label>
-                <Input
-                  id="startsAt"
-                  type="datetime-local"
-                  value={assignmentForm.startsAt}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, startsAt: e.target.value })}
-                />
-              </div>
-            )}
-            {selectedCell?.assignment && selectedCell.assignment.status === "ACTIVE" && (
-              <div className="grid gap-2">
-                <Label htmlFor="endsAt">End Date (Optional)</Label>
-                <Input
-                  id="endsAt"
-                  type="datetime-local"
-                  value={assignmentForm.endsAt}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, endsAt: e.target.value })}
-                />
-              </div>
-            )}
+            <div className="grid gap-2">
+              <Label htmlFor="variantId">Variant *</Label>
+              <Select
+                value={assignmentForm.variantId}
+                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, variantId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a variant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allVariants
+                    ?.filter((v) => v.product?.id === selectedCell?.productId)
+                    .map((variant) => (
+                      <SelectItem key={variant.id} value={variant.id}>
+                        {variant.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="note">Note (Optional)</Label>
               <Textarea
@@ -373,39 +442,23 @@ export default function Matrix() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            {selectedCell?.assignment && selectedCell.assignment.status === "ACTIVE" && (
+            {selectedCell?.assignment && (
               <Button
                 variant="destructive"
-                onClick={handleRevoke}
-                disabled={updateAssignmentMutation.isPending}
+                onClick={handleDelete}
+                disabled={deleteAssignmentMutation.isPending}
               >
-                {updateAssignmentMutation.isPending ? "Revoking..." : "Revoke Assignment"}
-              </Button>
-            )}
-            {selectedCell?.assignment && selectedCell.assignment.status === "REVOKED" && (
-              <Button
-                onClick={() => {
-                  updateAssignmentMutation.mutate({
-                    id: selectedCell.assignment!.id,
-                    data: {
-                      status: "ACTIVE",
-                      endsAt: null,
-                    },
-                  });
-                }}
-                disabled={updateAssignmentMutation.isPending}
-              >
-                {updateAssignmentMutation.isPending ? "Reactivating..." : "Reactivate"}
+                {deleteAssignmentMutation.isPending ? "Deleting..." : "Delete Assignment"}
               </Button>
             )}
             <Button
               onClick={handleSave}
-              disabled={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
+              disabled={!assignmentForm.variantId || createAssignmentMutation.isPending || deleteAssignmentMutation.isPending}
             >
-              {createAssignmentMutation.isPending || updateAssignmentMutation.isPending
+              {createAssignmentMutation.isPending || deleteAssignmentMutation.isPending
                 ? "Saving..."
                 : selectedCell?.assignment
-                ? "Update"
+                ? "Change Variant"
                 : "Assign"}
             </Button>
           </DialogFooter>

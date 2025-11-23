@@ -2,11 +2,15 @@ import { apiRequest } from "./client";
 import type { Product, ProductCreateRequest, ProductUpdateRequest, PageProduct, UUID } from "./types";
 
 export async function listProducts(params?: {
+  manufacturerId?: UUID;
   page?: number;
   size?: number;
   sort?: string;
 }): Promise<PageProduct> {
   const searchParams = new URLSearchParams();
+  if (params?.manufacturerId !== undefined && params.manufacturerId !== null && params.manufacturerId !== "") {
+    searchParams.append("manufacturerId", params.manufacturerId);
+  }
   if (params?.page !== undefined) searchParams.append("page", params.page.toString());
   if (params?.size !== undefined) searchParams.append("size", params.size.toString());
   if (params?.sort) searchParams.append("sort", params.sort);
@@ -38,6 +42,7 @@ export async function deleteProduct(id: UUID): Promise<void> {
     method: "DELETE",
   });
 }
+
 
 
 
