@@ -1,0 +1,139 @@
+name: Build and Deploy Licenses Frontend
+
+on:
+  push:
+    branches: [ main, master ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run lint
+      run: npm run lint
+
+    - name: Build
+      run: npm run build
+      env:
+        VITE_API_BASE_URL: https://licenses-backend.meimberg.io/api/v1
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          VITE_API_BASE_URL=https://licenses-backend.meimberg.io/api/v1
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    env:
+      PROJECT_NAME: licenses-frontend
+      APP_DOMAIN: ${{ vars.APP_DOMAIN || 'licenses.meimberg.io' }}
+      DOCKER_IMAGE: ghcr.io/${{ github.repository }}:latest
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Copy docker-compose template to server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ vars.SERVER_HOST }}
+        username: ${{ vars.SERVER_USER || 'deploy' }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        source: "docker-compose.prod.yml"
+        target: "/srv/projects/${{ env.PROJECT_NAME }}/"
+    
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ vars.SERVER_HOST }}
+        username: ${{ vars.SERVER_USER || 'deploy' }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        envs: PROJECT_NAME,GITHUB_TOKEN,DOCKER_IMAGE,APP_DOMAIN
+        script: |
+          set -e
+          
+          # Login to GitHub Container Registry
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Create project directory
+          mkdir -p /srv/projects/${PROJECT_NAME}
+          cd /srv/projects/${PROJECT_NAME}
+          
+          # Substitute variables in docker-compose template
+          export PROJECT_NAME="${PROJECT_NAME}"
+          export DOCKER_IMAGE="${DOCKER_IMAGE}"
+          export APP_DOMAIN="${APP_DOMAIN}"
+          
+          envsubst < docker-compose.prod.yml > docker-compose.yml
+          
+          echo "Generated docker-compose.yml:"
+          cat docker-compose.yml
+          
+          # Pull latest image and deploy
+          docker compose pull
+          docker compose up -d
+          
+          # Wait for containers to be ready
+          sleep 5
+          
+          # Verify deployment
+          if docker ps | grep -q ${PROJECT_NAME}; then
+            echo "✅ ${PROJECT_NAME} deployed successfully!"
+            echo "🌐 Accessible at: https://${APP_DOMAIN}"
+          else
+            echo "❌ Deployment failed - container not running"
+            docker logs ${PROJECT_NAME}
+            exit 1
+          fi
+
