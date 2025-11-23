@@ -41,8 +41,8 @@ export default function Matrix() {
     assignment?: Assignment;
   } | null>(null);
   const [assignmentForm, setAssignmentForm] = useState({
-    starts_at: "",
-    ends_at: "",
+    startsAt: "",
+    endsAt: "",
     note: "",
   });
 
@@ -93,14 +93,14 @@ export default function Matrix() {
 
   // Create assignment mutation
   const createAssignmentMutation = useMutation({
-    mutationFn: async (data: { user_id: string; product_variant_id: string; starts_at?: string | null; note?: string | null }) => {
+    mutationFn: async (data: { userId: string; productVariantId: string; startsAt?: string | null; note?: string | null }) => {
       return assignmentsApi.createAssignment(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
       toast.success("License assigned successfully");
       setSelectedCell(null);
-      setAssignmentForm({ starts_at: "", ends_at: "", note: "" });
+      setAssignmentForm({ startsAt: "", endsAt: "", note: "" });
     },
     onError: (error: any) => {
       console.error("Create assignment error:", error);
@@ -110,14 +110,14 @@ export default function Matrix() {
 
   // Update assignment mutation (revoke/reactivate)
   const updateAssignmentMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { status?: "ACTIVE" | "REVOKED"; ends_at?: string | null } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { status?: "ACTIVE" | "REVOKED"; endsAt?: string | null } }) => {
       return assignmentsApi.updateAssignment(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
       toast.success("Assignment updated successfully");
       setSelectedCell(null);
-      setAssignmentForm({ starts_at: "", ends_at: "", note: "" });
+      setAssignmentForm({ startsAt: "", endsAt: "", note: "" });
     },
     onError: (error: any) => {
       console.error("Update assignment error:", error);
@@ -129,7 +129,7 @@ export default function Matrix() {
   const assignmentMap = useMemo(() => {
     const map = new Map<string, Assignment>();
     assignmentsPage?.content?.forEach((assignment) => {
-      const key = `${assignment.user_id}-${assignment.product_variant_id}`;
+      const key = `${assignment.userId}-${assignment.productVariantId}`;
       map.set(key, assignment);
     });
     return map;
@@ -143,12 +143,12 @@ export default function Matrix() {
     
     if (assignment) {
       setAssignmentForm({
-        starts_at: assignment.starts_at ? assignment.starts_at.split("T")[0] : "",
-        ends_at: assignment.ends_at ? assignment.ends_at.split("T")[0] : "",
+        startsAt: assignment.startsAt ? assignment.startsAt.split("T")[0] : "",
+        endsAt: assignment.endsAt ? assignment.endsAt.split("T")[0] : "",
         note: assignment.note || "",
       });
     } else {
-      setAssignmentForm({ starts_at: "", ends_at: "", note: "" });
+      setAssignmentForm({ startsAt: "", endsAt: "", note: "" });
     }
   };
 
@@ -162,15 +162,15 @@ export default function Matrix() {
         id: selectedCell.assignment.id,
         data: {
           status: isActive ? "REVOKED" : "ACTIVE",
-          ends_at: isActive ? (assignmentForm.ends_at || new Date().toISOString()) : null,
+          endsAt: isActive ? (assignmentForm.endsAt || new Date().toISOString()) : null,
         },
       });
     } else {
       // Create new assignment
       createAssignmentMutation.mutate({
-        user_id: selectedCell.userId,
-        product_variant_id: selectedCell.variantId,
-        starts_at: assignmentForm.starts_at || null,
+        userId: selectedCell.userId,
+        productVariantId: selectedCell.variantId,
+        startsAt: assignmentForm.startsAt || null,
         note: assignmentForm.note || null,
       });
     }
@@ -182,7 +182,7 @@ export default function Matrix() {
         id: selectedCell.assignment.id,
         data: {
           status: "REVOKED",
-          ends_at: new Date().toISOString(),
+          endsAt: new Date().toISOString(),
         },
       });
     }
@@ -243,8 +243,8 @@ export default function Matrix() {
             {users.map((user) => (
               <div key={user.id} className="contents">
                 <div className="sticky left-0 z-10 bg-card backdrop-blur border-b border-r border-border p-3">
-                  <div className="font-medium truncate" title={user.display_name}>
-                    {user.display_name}
+                  <div className="font-medium truncate" title={user.displayName}>
+                    {user.displayName}
                   </div>
                   <div className="text-xs text-muted-foreground truncate" title={user.email}>
                     {user.email}
@@ -274,10 +274,10 @@ export default function Matrix() {
                           >
                             {assignment.status}
                           </Badge>
-                          {assignment.ends_at && (
+                          {assignment.endsAt && (
                             <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                               <Calendar className="h-2.5 w-2.5" />
-                              {new Date(assignment.ends_at).toLocaleDateString()}
+                              {new Date(assignment.endsAt).toLocaleDateString()}
                             </div>
                           )}
                           {assignment.note && (
@@ -325,7 +325,7 @@ export default function Matrix() {
                   </span>{" "}
                   to{" "}
                   <span className="font-semibold">
-                    {users.find((u) => u.id === selectedCell.userId)?.display_name}
+                    {users.find((u) => u.id === selectedCell.userId)?.displayName}
                   </span>
                 </>
               )}
@@ -342,23 +342,23 @@ export default function Matrix() {
             )}
             {!selectedCell?.assignment && (
               <div className="grid gap-2">
-                <Label htmlFor="starts_at">Start Date (Optional)</Label>
+                <Label htmlFor="startsAt">Start Date (Optional)</Label>
                 <Input
-                  id="starts_at"
+                  id="startsAt"
                   type="datetime-local"
-                  value={assignmentForm.starts_at}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, starts_at: e.target.value })}
+                  value={assignmentForm.startsAt}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, startsAt: e.target.value })}
                 />
               </div>
             )}
             {selectedCell?.assignment && selectedCell.assignment.status === "ACTIVE" && (
               <div className="grid gap-2">
-                <Label htmlFor="ends_at">End Date (Optional)</Label>
+                <Label htmlFor="endsAt">End Date (Optional)</Label>
                 <Input
-                  id="ends_at"
+                  id="endsAt"
                   type="datetime-local"
-                  value={assignmentForm.ends_at}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, ends_at: e.target.value })}
+                  value={assignmentForm.endsAt}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, endsAt: e.target.value })}
                 />
               </div>
             )}
@@ -389,7 +389,7 @@ export default function Matrix() {
                     id: selectedCell.assignment!.id,
                     data: {
                       status: "ACTIVE",
-                      ends_at: null,
+                      endsAt: null,
                     },
                   });
                 }}

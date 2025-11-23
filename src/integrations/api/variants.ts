@@ -9,7 +9,8 @@ import type {
 } from "./types";
 
 export async function listVariantsByProduct(productId: UUID): Promise<ProductVariant[]> {
-  return apiRequest<ProductVariant[]>(`/products/${productId}/variants`);
+  const page = await apiRequest<PageProductVariant>(`/products/${productId}/variants`);
+  return page.content || [];
 }
 
 export async function createVariant(productId: UUID, data: ProductVariantCreateRequest): Promise<ProductVariant> {
