@@ -11,9 +11,19 @@ import ProductDetail from "./pages/ProductDetail";
 import Variants from "./pages/Variants";
 import Assignments from "./pages/Assignments";
 import Matrix from "./pages/Matrix";
+import Manufacturers from "./pages/Manufacturers";
+import ManufacturerDetail from "./pages/ManufacturerDetail";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -30,6 +40,8 @@ const App = () => (
             <Route path="/variants" element={<Variants />} />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/matrix" element={<Matrix />} />
+            <Route path="/manufacturers" element={<Manufacturers />} />
+            <Route path="/manufacturers/:id" element={<ManufacturerDetail />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -40,6 +52,7 @@ const App = () => (
 );
 
 export default App;
+
 
 
 

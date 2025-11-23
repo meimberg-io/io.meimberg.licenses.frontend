@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Package, FileText, Grid3x3 } from "lucide-react";
+import { LayoutDashboard, Users, Package, FileText, Grid3x3, Building2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 import {
@@ -17,6 +17,7 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Users", url: "/users", icon: Users },
   { title: "Products", url: "/products", icon: Package },
+  { title: "Manufacturers", url: "/manufacturers", icon: Building2 },
   { title: "Assignments", url: "/assignments", icon: FileText },
   { title: "Matrix View", url: "/matrix", icon: Grid3x3 },
 ];
@@ -56,6 +57,7 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
 
 
 

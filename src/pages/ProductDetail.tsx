@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import * as manufacturersApi from "@/integrations/api/manufacturers";
+import { CreateManufacturerDialog } from "@/components/CreateManufacturerDialog";
 import {
   Table,
   TableBody,
@@ -19,11 +22,19 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { ArrowLeft, Plus, Pencil, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -44,15 +55,17 @@ export default function ProductDetail() {
     key: "",
     name: "",
     description: "",
+    manufacturerId: "none",
   });
 
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
+  const [manufacturerDialogOpen, setManufacturerDialogOpen] = useState(false);
   const [variantForm, setVariantForm] = useState({
     key: "",
     name: "",
-    capacity: "",
-    attributes: "",
+    description: "",
+    price: "",
   });
 
   // Fetch product data
@@ -75,6 +88,14 @@ export default function ProductDetail() {
     enabled: !isNewProduct && !!id,
   });
 
+  // Fetch manufacturers
+  const { data: manufacturersPage } = useQuery({
+    queryKey: ["manufacturers"],
+    queryFn: async () => {
+      return manufacturersApi.listManufacturers();
+    },
+  });
+
   // Update form when product data loads
   useEffect(() => {
     if (product) {
@@ -82,6 +103,7 @@ export default function ProductDetail() {
         key: product.key,
         name: product.name,
         description: product.description || "",
+        manufacturerId: product.manufacturerId || "none",
       });
     }
   }, [product]);
@@ -89,7 +111,10 @@ export default function ProductDetail() {
   // Create product mutation
   const createProductMutation = useMutation({
     mutationFn: async (data: typeof productForm) => {
-      return productsApi.createProduct(data);
+      return productsApi.createProduct({
+        ...data,
+        manufacturerId: data.manufacturerId === "none" ? null : data.manufacturerId,
+      });
     },
     onSuccess: async (newProduct) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -106,7 +131,10 @@ export default function ProductDetail() {
   const updateProductMutation = useMutation({
     mutationFn: async (data: typeof productForm) => {
       if (!id) throw new Error("Product ID is required");
-      return productsApi.updateProduct(id, data);
+      return productsApi.updateProduct(id, {
+        ...data,
+        manufacturerId: data.manufacturerId === "none" ? null : data.manufacturerId,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product", id] });
@@ -123,24 +151,11 @@ export default function ProductDetail() {
   const createVariantMutation = useMutation({
     mutationFn: async (data: typeof variantForm) => {
       if (!id) throw new Error("Product ID is required");
-      let attributes: Record<string, any> | null = null;
-      if (data.attributes.trim()) {
-        try {
-          attributes = JSON.parse(data.attributes);
-        } catch {
-          throw new Error("Invalid JSON in attributes field");
-        }
-      }
-      const capacityStr = String(data.capacity || "").trim();
-      const capacity = capacityStr ? parseInt(capacityStr, 10) : null;
-      if (capacityStr && isNaN(capacity!)) {
-        throw new Error("Capacity must be a valid number");
-      }
       return variantsApi.createVariant(id, {
         key: data.key,
         name: data.name,
-        capacity,
-        attributes,
+        description: data.description || null,
+        price: data.price ? parseFloat(data.price) : null,
       });
     },
     onSuccess: () => {
@@ -157,24 +172,11 @@ export default function ProductDetail() {
   // Update variant mutation
   const updateVariantMutation = useMutation({
     mutationFn: async ({ variantId, data }: { variantId: string; data: typeof variantForm }) => {
-      let attributes: Record<string, any> | null = null;
-      if (data.attributes.trim()) {
-        try {
-          attributes = JSON.parse(data.attributes);
-        } catch {
-          throw new Error("Invalid JSON in attributes field");
-        }
-      }
-      const capacityStr = String(data.capacity || "").trim();
-      const capacity = capacityStr ? parseInt(capacityStr, 10) : null;
-      if (capacityStr && isNaN(capacity!)) {
-        throw new Error("Capacity must be a valid number");
-      }
       return variantsApi.updateVariant(variantId, {
         key: data.key,
         name: data.name,
-        capacity,
-        attributes,
+        description: data.description || null,
+        price: data.price ? parseFloat(data.price) : null,
       });
     },
     onSuccess: () => {
@@ -223,32 +225,11 @@ export default function ProductDetail() {
 
   const handleEditVariant = (variant: ProductVariant) => {
     setEditingVariant(variant);
-    
-    let capacityValue: number | null | undefined = null;
-    if (typeof variant.capacity === 'number') {
-      capacityValue = variant.capacity;
-    } else if (typeof variant.capacity === 'object' && variant.capacity !== null) {
-      const cap = variant.capacity as any;
-      if (cap.present === true && typeof cap.value === 'number') {
-        capacityValue = cap.value;
-      }
-    }
-    
-    let attributesValue: Record<string, any> | null = null;
-    if (variant.attributes && typeof variant.attributes === 'object') {
-      const attrs = variant.attributes as any;
-      if (attrs.present === true && attrs.value) {
-        attributesValue = attrs.value;
-      } else if (!('present' in attrs)) {
-        attributesValue = attrs;
-      }
-    }
-    
     setVariantForm({
       key: variant.key,
       name: variant.name,
-      capacity: capacityValue?.toString() || "",
-      attributes: attributesValue ? JSON.stringify(attributesValue, null, 2) : "",
+      description: variant.description || "",
+      price: variant.price?.toString() || "",
     });
     setVariantDialogOpen(true);
   };
@@ -256,12 +237,12 @@ export default function ProductDetail() {
   const handleCloseVariantDialog = () => {
     setVariantDialogOpen(false);
     setEditingVariant(null);
-    setVariantForm({ key: "", name: "", capacity: "", attributes: "" });
+    setVariantForm({ key: "", name: "", description: "", price: "" });
   };
 
   const handleOpenVariantDialog = () => {
     setEditingVariant(null);
-    setVariantForm({ key: "", name: "", capacity: "", attributes: "" });
+    setVariantForm({ key: "", name: "", description: "", price: "" });
     setVariantDialogOpen(true);
   };
 
@@ -275,16 +256,10 @@ export default function ProductDetail() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/products")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">
-            {isNewProduct ? "New Product" : "Edit Product"}
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            {isNewProduct
-              ? "Create a new product"
-              : "Manage product details and variants"}
-          </p>
-        </div>
+        <div className="flex-1" />
+        <h2 className="text-3xl font-bold tracking-tight text-foreground text-right">
+          {isNewProduct ? "New Product" : (product?.name || productForm?.name || "Product")}
+        </h2>
       </div>
 
       <form onSubmit={handleSaveProduct}>
@@ -315,26 +290,54 @@ export default function ProductDetail() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
+              <RichTextEditor
                 value={productForm.description}
-                onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                rows={4}
+                onChange={(value) => setProductForm({ ...productForm, description: value })}
+                placeholder="Enter product description..."
               />
-            </div>
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={createProductMutation.isPending || updateProductMutation.isPending}
-                className="gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {createProductMutation.isPending || updateProductMutation.isPending
-                  ? "Saving..."
-                  : "Save Product"}
-              </Button>
+              <div className="grid gap-2">
+                <Label htmlFor="manufacturerId">Manufacturer</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={productForm.manufacturerId}
+                    onValueChange={(value) => setProductForm({ ...productForm, manufacturerId: value })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select a manufacturer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {manufacturersPage?.content?.map((manufacturer) => (
+                        <SelectItem key={manufacturer.id} value={manufacturer.id}>
+                          {manufacturer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setManufacturerDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
+          <CardFooter>
+            <Button
+              type="submit"
+              disabled={createProductMutation.isPending || updateProductMutation.isPending}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {createProductMutation.isPending || updateProductMutation.isPending
+                ? "Saving..."
+                : "Save Product"}
+            </Button>
+          </CardFooter>
         </Card>
       </form>
 
@@ -359,7 +362,7 @@ export default function ProductDetail() {
                   <TableRow>
                     <TableHead>Key</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Capacity</TableHead>
+                    <TableHead className="text-right">Price (EUR)</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -373,34 +376,16 @@ export default function ProductDetail() {
                   ) : !variants || variants.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center text-muted-foreground">
-                        No variants found. Click "Add Variant" to create one.
+                        No variants found. A default variant is created automatically.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    variants.map((variant) => {
-                      let capacityDisplay: string | number = "Unlimited";
-                      if (typeof variant.capacity === 'number') {
-                        capacityDisplay = variant.capacity;
-                      } else if (typeof variant.capacity === 'object' && variant.capacity !== null) {
-                        const cap = variant.capacity as any;
-                        if (cap.present === true) {
-                          if (typeof cap.value === 'number') {
-                            capacityDisplay = cap.value;
-                          } else {
-                            capacityDisplay = "Unlimited";
-                          }
-                        } else if (cap.present === false) {
-                          capacityDisplay = "Unlimited";
-                        } else if ('value' in cap && typeof cap.value === 'number') {
-                          capacityDisplay = cap.value;
-                        }
-                      }
-                      return (
-                        <TableRow key={variant.id}>
-                          <TableCell className="font-medium">{variant.key}</TableCell>
-                          <TableCell>{variant.name}</TableCell>
-                          <TableCell>{capacityDisplay}</TableCell>
-                          <TableCell className="text-right">
+                    variants.map((variant) => (
+                      <TableRow key={variant.id}>
+                        <TableCell className="font-medium">{variant.key}</TableCell>
+                        <TableCell>{variant.name}</TableCell>
+                        <TableCell className="text-right">{variant.price ? `€${variant.price.toFixed(2)}` : "-"}</TableCell>
+                        <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button
                                 variant="ghost"
@@ -419,8 +404,7 @@ export default function ProductDetail() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      );
-                    })
+                    ))
                   )}
                 </TableBody>
               </Table>
@@ -432,10 +416,10 @@ export default function ProductDetail() {
       <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
         <DialogContent>
           <form onSubmit={handleSaveVariant}>
-            <DialogHeader>
+            <DialogHeader className="bg-muted/50 -mx-6 -mt-6 px-6 py-4 rounded-t-lg">
               <DialogTitle>{editingVariant ? "Edit Variant" : "Create New Variant"}</DialogTitle>
               <DialogDescription>
-                {editingVariant ? "Update variant information" : "Add a new variant to this product"}
+                {product?.name || "Product"}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -459,23 +443,23 @@ export default function ProductDetail() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="capacity">Capacity</Label>
-                <Input
-                  id="capacity"
-                  type="number"
-                  value={typeof variantForm.capacity === 'string' ? variantForm.capacity : String(variantForm.capacity || '')}
-                  onChange={(e) => setVariantForm({ ...variantForm, capacity: e.target.value })}
-                  placeholder="Leave empty for unlimited"
+                <Label htmlFor="variant-description">Description</Label>
+                <RichTextEditor
+                  value={variantForm.description}
+                  onChange={(value) => setVariantForm({ ...variantForm, description: value })}
+                  placeholder="Enter variant description..."
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="attributes">Attributes (JSON)</Label>
-                <Textarea
-                  id="attributes"
-                  value={variantForm.attributes}
-                  onChange={(e) => setVariantForm({ ...variantForm, attributes: e.target.value })}
-                  placeholder='{"key": "value"}'
-                  rows={4}
+                <Label htmlFor="variant-price">Price (EUR)</Label>
+                <Input
+                  id="variant-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={variantForm.price}
+                  onChange={(e) => setVariantForm({ ...variantForm, price: e.target.value })}
+                  placeholder="0.00"
                 />
               </div>
             </div>
@@ -494,6 +478,15 @@ export default function ProductDetail() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <CreateManufacturerDialog
+        open={manufacturerDialogOpen}
+        onOpenChange={setManufacturerDialogOpen}
+        onManufacturerCreated={(manufacturer) => {
+          setProductForm({ ...productForm, manufacturerId: manufacturer.id });
+          queryClient.invalidateQueries({ queryKey: ["manufacturers"] });
+        }}
+      />
     </div>
   );
 }
